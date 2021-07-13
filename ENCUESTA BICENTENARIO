@@ -1,1 +1,385 @@
+library(haven)
+library(tidyverse)
+library(ggplot2)
+library(gridExtra)
+library(ggplot2) 
+library(tidyverse)
+library(stringr)
+library(stargazer)
+library(ggridges)
+library(ggthemes)
+library(hrbrthemes)
+
+getwd()
+setwd("D:/Scripts R/Taller autogestion/EDA Prácticos")
+
+
+encuesta <- read_sav("2020_BBDD BicentenarioUC.sav")
+#Esta es la del 2019
+#encuesta1 <- read_sav("2019_ BBDD  Bicentenario UC.sav")
+
+
+View(encuesta)
+
+#Reduzcámosla
+
+names(encuesta)
+
+encuesta <- encuesta %>% 
+  select(P4,                    #N de veces salidas de casa
+         P10,                   #sentimiento de soledad
+         P13,                   #ayuda fuera del hogar 
+         edad_cat,              #edad_cat                    
+         educ,                  #educación
+         P36,                   #Sexo
+         P28_1,                 #Iglesia
+         P28_2,                 #FF.AA
+         P28_3,                 #El Gobierno
+         P28_4,                 #Municipalidades
+         P28_5,                 #Los parlamentarios
+         P28_6,                 #Las empresas
+         P28_7,                 #Carabineros
+         P32,                   #Ingreso afectado en pandemia
+         gse_calc,              #Grupo socio económico calculado. 
+         i07,                    #País que más admira
+         cp01,                    #Educación alcanzada del encuestado. 
+         cp02,                    #Educación alcanzada x la madre
+         cp03                    #Educación alcanzada x el padre
+  )
+
+
+
+#Veamos las preguntas del cuestionario. 
+
+
+# P4. Pensando en los últimos siete días ¿cuántos días tuvo que salir de su casa, 
+#con o sin el permiso de Carabineros?
+
+
+summary(encuesta$P4)
+
+ggplot(data = encuesta) +
+  geom_bar(mapping = aes(x = P4))
+
+encuesta <- filter (encuesta, P4<=7)
+
+
+ggplot(data = encuesta) +
+  geom_bar(mapping = aes(x = P4))
+
+
+
+#Veamos por rangos etarios
+
+encuesta %>%
+    group_by(edad_cat) %>%
+   summarise(P4 = n()) %>%
+    arrange(desc(P4))
+
+
+boxplot(encuesta$P4 ~ encuesta$edad_cat)
+
+#Categorizar como salió y no salió de casa
+
+
+encuesta$P4_d[encuesta$P4>=0 & encuesta$P4<=0]<-"No salió "  
+encuesta$P4_d[encuesta$P4>=1 & encuesta$P4<=7]<-"Sí salió "  
+
+
+salidas <- encuesta %>%
+  group_by(edad_cat, P4_d) %>%
+  summarize(n = n()) %>%
+  mutate(perc = n/sum(n) )
+
+
+ggplot(salidas, aes(x=edad_cat, y = perc, fill = P4_d) ) +
+  geom_bar(stat = "identity", position = "fill") +
+  geom_text(aes(label= scales::percent(perc)), 
+            position = position_stack(vjust = .5))+
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(x="", y= "Proporción", fill= "N° de veces salides") +
+  labs(
+    title="Porcentaje de veces que han salidoo del Hogar",
+    subtitle="Separado por rango etario ",
+    caption="Fuente de datos: Encuesta Bicentenario 2020")
+
+
+
+#Categorice 1 y 2 como adulto joven; 3 y 4 como adulto; y 5 como adulto mayor. 
+
+
+#RESPUESTA
+
+encuesta$edad1[encuesta$edad_cat>=1 & encuesta$edad_cat<=2]<-"1.ADULTO JOVEN "  
+encuesta$edad1[encuesta$edad_cat>=3 & encuesta$edad_cat<=4]<-"2.ADULTO"
+encuesta$edad1[encuesta$edad_cat>=5 & encuesta$edad_cat<=5]<-"3.ADULTO MAYOR"
+
+boxplot(encuesta$P4 ~ encuesta$edad1)
+
+
+salidas1 <- encuesta %>%
+  group_by(edad1, P4_d) %>%
+  summarize(n = n()) %>%
+  mutate(perc = n/sum(n) )
+
+
+ggplot(salidas1, aes(x=edad1, y = perc, fill = P4_d) ) +
+  geom_bar(stat = "identity", position = "fill") +
+  geom_text(aes(label= scales::percent(perc)), 
+            position = position_stack(vjust = .5))+
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(x="", y= "Proporción", fill= "N° de veces salides") +
+  labs(
+    title="Porcentaje de veces que han salidoo del Hogar",
+    subtitle="Separado por rango etario ",
+    caption="Fuente de datos: Encuesta Bicentenario 2020")
+
+
+
+#Hagamos un ggplot por los días
+
+ggplot(data = encuesta) +
+  geom_bar(mapping = aes(x =  P4, fill = edad1))
+
+#Veamos para hacerlo en porcentaje
+
+edad2 <- encuesta %>%
+  group_by(edad1, P4) %>%
+  summarize(n = n()) %>%
+  mutate(perc = n/sum(n) )
+
+
+edad2$P4 <- as.factor(edad2$P4)
+
+
+ggplot(edad2, aes(x=edad1, y = perc, fill = P4) ) +
+  geom_bar(stat = "identity", position = "fill") +
+  geom_text(aes(label= scales::percent(perc)), 
+            position = position_stack(vjust = .5))+
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(x="", y= "Proporción", fill= "N° de veces salides") +
+  labs(
+    title="Porcentaje de veces que han salidoo del Hogar",
+    subtitle="Separado por rango etario ",
+    caption="Fuente de datos: Encuesta Bicentenario 2020")
+  
+
+#Veamos otra variable: Confianza en ffaa.
+
+summary(encuesta$P28_2)
+
+encuesta <- filter (encuesta, P28_2<=5) #Máximo de evaluación
+
+encuesta$P28_2 <-as.character(encuesta$P28_2)
+
+#Veamos la confianza separado por sexo <- Hay una maña aquí. Revisar. 
+
+
+encuesta$P36 <- as.numeric(encuesta$P36)
+
+
+encuesta$P36 <- factor(encuesta$P36, levels = c('1', '2'),
+                      labels = c("Hombre", "Mujer")) 
+
+
+
+encuesta <- filter (encuesta, P28_2<=5)
+
+ggplot(encuesta, aes(x=P28_2, y= edad_cat, fill= P36)) + 
+  geom_boxplot()  + 
+  labs(
+    title="Confianza para FFAA",
+    subtitle="Siendo 1 mucha y 5 nada  ",
+    caption="Fuente de datos: Encuesta Bicentenario 2020")
+
+
+
+#¿Otras formas ?
+
+encuesta$P28_2d[encuesta$P28_2>=0 & encuesta$P4<=3]<-"Confía "  
+encuesta$P28_2d[encuesta$P28_2>=4 & encuesta$P4<=5]<-"No confía "  
+
+ffaa2 <- encuesta %>%
+  group_by(P36, P28_2d) %>%
+  summarize(n = n()) %>%
+  mutate(perc = n/sum(n) )
+
+ggplot(ffaa2, aes(x=P36, y = perc, fill = P28_2d) ) + #Mañana con el NA. 
+  geom_bar(stat = "identity", position = "fill") +
+  geom_text(aes(label= scales::percent(perc)), 
+            position = position_stack(vjust = .5))+
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(x="", y= "Proporción", fill= "Evaluación de desconfianza") +
+  labs(
+    title="Porcentaje evaluatiavo hacia Fuerzas Armadas por sexo",
+    subtitle="Siendo 1 Mucha y 5 Nada ",
+    caption="Fuente de datos: Encuesta Bicentenario 2020")
+
+#Iglesia
+
+summary(encuesta$P28_1)
+
+encuesta <- filter (encuesta, P28_1<=5) #Máximo de evaluación
+
+encuesta$P28_1 <-as.factor(encuesta$P28_1)
+
+ggplot(encuesta, aes(x=P28_1, y= edad_cat, fill= P36)) + 
+  geom_boxplot()  + 
+  labs(
+    title="Confianza para a en la Iglesia ",
+    subtitle="Siendo 1 mucha y 5 nada  ",
+    caption="Fuente de datos: Encuesta Bicentenario 2020")
+
+iglesia <- encuesta %>%
+  group_by(P36, P28_1) %>%
+  summarize(n = n()) %>%
+  mutate(perc = n/sum(n) )
+
+
+ggplot(iglesia, aes(x=P36, y = perc, fill = P28_1) ) +
+  geom_bar(stat = "identity", position = "fill") +
+  geom_text(aes(label= scales::percent(perc)), 
+            position = position_stack(vjust = .5))+
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(x="", y= "Proporción", fill= "Evaluación de desconfianza") +
+  labs(
+    title="Porcentaje evaluatiavo hacia la Iglesia por sexo",
+    subtitle="Siendo 1 Mucha y 5 Nada ",
+    caption="Fuente de datos: Encuesta Bicentenario 2020")
+
+# El gobierno 
+
+summary(encuesta$P28_3)
+
+encuesta <- filter (encuesta, P28_3<=5) #Máximo de evaluación
+
+encuesta$P28_3 <-as.character(encuesta$P28_3)
+
+ggplot(encuesta, aes(x=P28_3, y= edad_cat, fill= P36)) + 
+  geom_boxplot()  + 
+  labs(
+    title="Confianza para a en el Gobierno",
+    subtitle="Siendo 1 mucha y 5 nada  ",
+    caption="Fuente de datos: Encuesta Bicentenario 2020")
+
+
+gobierno <- encuesta %>%
+  group_by(P36, P28_3) %>%
+  summarize(n = n()) %>%
+  mutate(perc = n/sum(n) )
+
+
+ggplot(gobierno, aes(x=P36, y = perc, fill = P28_3) ) +
+  geom_bar(stat = "identity", position = "fill") +
+  geom_text(aes(label= scales::percent(perc)), 
+            position = position_stack(vjust = .5))+
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(x="", y= "Proporción", fill= "Evaluación de desconfianza") +
+  labs(
+    title="Porcentaje evaluatiavo hacia la Iglesia por sexo",
+    subtitle="Siendo 1 Mucha y 5 Nada ",
+    caption="Fuente de datos: Encuesta Bicentenario 2020")
+
+
+#Otras formas: Empresas #
+
+encuesta <- filter (encuesta, P28_6<=5) 
+
+encuesta$gse_calc <-as.character(encuesta$gse_calc)
+
+encuesta <- filter (encuesta, gse_calc<=5) 
+
+ggplot(encuesta, aes(x=P28_6, y= gse_calc, fill= gse_calc)) + 
+  geom_boxplot()  + 
+  labs(
+    title="Confianza para a en el Gobierno",
+    subtitle="Siendo 1 mucha y 5 nada  ",
+    caption="Fuente de datos: Encuesta Bicentenario 2020")
+
+
+encuesta$P28_6d[encuesta$P28_6>=0 & encuesta$P28_6<=3]<-"Confía "  
+encuesta$P28_6d[encuesta$P28_6>=4 & encuesta$P28_6<=5]<-"No confía "  
+
+empresas <- encuesta %>% #Verificar grupo socio económico segun su etiqueta. 
+  group_by(gse_calc, P28_6d) %>%
+  summarize(n = n()) %>%
+  mutate(perc = n/sum(n) )
+
+
+ggplot(empresas, aes(x=gse_calc, y = perc, fill = P28_6d) ) +
+  geom_bar(stat = "identity", position = "fill") +
+  geom_text(aes(label= scales::percent(perc)), 
+            position = position_stack(vjust = .5))+
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(x="", y= "Proporción", fill= "Evaluación de desconfianza") +
+  labs(
+    title="Porcentaje evaluatiavo hacia Empresas por Quintil socio económico",
+    subtitle="Siendo 1 Mucha y 5 Nada ",
+    caption="Fuente de datos: Encuesta Bicentenario 2020")
+
+
+###Hagamos otra con educación #####
+
+summary(encuesta$cp01)
+
+encuesta <- filter (encuesta, cp01<=23) # 12 media # 15 tecnica # 17 univer # 19 mag # 23 doctorado
+encuesta <- filter (encuesta, cp02<=23)
+encuesta <- filter (encuesta, cp03<=23)
+
+# Plot
+
+
+ggplot(encuesta, aes(x=cp01, y=cp02)) + #mejorarlo. 
+   geom_point() + ggtitle("Gráfico educación Padre y Encuestado") + 
+     xlab("Educación encuestado") + 
+     ylab("educación madre") + geom_smooth(method=lm)
+
+modelo1 <- lm(cp01 ~ as.numeric (cp02) , data = encuesta)
+
+modelo1
+
+
+a <- 6.904 + (0.5215*2) # dos años educativos
+a
+b <-  6.904 + (0.5215*10) # enseñanza básica --> verifiquemos en el gráfico 
+b
+c <-  6.904 + (0.5215*12) # enseñanza media
+c
+
+ggplot(encuesta, aes(x=cp01, y=cp03)) + 
+  geom_point() + ggtitle("Gráfico educación madre y Encuestado") + 
+  xlab("Educación encuestado") + 
+  ylab("educación padre") + geom_smooth(method=lm)
+
+modelo2 <- lm(cp01 ~ as.numeric (cp03) , data = encuesta)
+
+modelo2
+
+a1 <- 6.8014 + (0.5167*2) # dos años educativos
+a
+b2 <- 6.8014 + (0.5167*8) # enseñanza básica
+b
+c2 <- 6.8014 + (0.5167*12) # enseñanza media
+c
+
+#Otras
+
+View(encuesta)
+
+x <- encuesta %>%
+  group_by(i07) %>%
+  summarize(n = n()) %>%
+  mutate(perc = n/sum(n) )
+
+ggplot(data=x, aes(x=i07, y=n, top_n = 10)) +
+  geom_bar(stat="identity", fill="steelblue")+
+  geom_text(aes(label= i07), vjust=-0.3, size=3.5)+
+  theme_minimal()
 
